@@ -96,13 +96,13 @@ export function parseStructuredMessage(message: string): StructuredMessage {
     // Check if the parsed object has the expected structure.
     if (
       parsed.voice_output &&
-      parsed.text_output &&
-      typeof parsed.text_output.content === 'string'
+      parsed.diagnostic_report &&
+      typeof parsed.diagnostic_report.content === 'string'
     ) {
       return {
         voice_output: parsed.voice_output,
-        text_output: parsed.text_output,
-        html_output: createRichTextOutput(parsed.text_output),
+        text_output: parsed.diagnostic_report, // Map diagnostic_report to text_output for compatibility
+        html_output: createRichTextOutput(parsed.diagnostic_report),
       };
     }
   } catch {

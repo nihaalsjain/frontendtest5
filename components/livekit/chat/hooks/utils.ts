@@ -23,7 +23,7 @@ interface StructuredTextData {
 
 interface VoiceTextResponse {
   voice_output: string;
-  text_output: StructuredTextData;
+  diagnostic_report: StructuredTextData;
 }
 
 // Parse the special VOICE:content|||TEXT:content format
@@ -33,10 +33,10 @@ const parseStructuredMessage = (
   // First try to parse as direct JSON from backend
   try {
     const jsonData = JSON.parse(message) as VoiceTextResponse;
-    if (jsonData.voice_output && jsonData.text_output) {
+    if (jsonData.voice_output && jsonData.diagnostic_report) {
       return {
         voice: jsonData.voice_output,
-        text: JSON.stringify(jsonData.text_output),
+        text: JSON.stringify(jsonData.diagnostic_report),
         isStructured: true,
       };
     }
