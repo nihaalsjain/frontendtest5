@@ -51,7 +51,7 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
       await send(message);
     }
 
-    // Get the latest text content for the text output panel
+    // Get the latest text content for the diagnostic report panel
     const getLatestTextContent = (): string => {
       const assistantMessages = messages.filter((msg) => !msg.from?.isLocal);
       if (assistantMessages.length === 0) return '';
@@ -59,7 +59,19 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
       const raw = lastMessage.message;
       if (typeof raw !== 'string') return '';
 
-      // Try to parse as structured JSON with voice_output and text_output
+      // Try to parse as new structured JSON with diagnostic_report
+      try {
+        const parsed = JSON.parse(raw);
+        if (
+          parsed &&
+          parsed.diagnostic_report &&
+          typeof parsed.diagnostic_report.content === 'string'
+        ) {
+          return JSON.stringify(parsed.diagnostic_report);
+        }
+      } catch {}
+
+      // Try legacy structured JSON with text_output
       try {
         const parsed = JSON.parse(raw);
         if (parsed && parsed.text_output && typeof parsed.text_output.content === 'string') {
@@ -71,7 +83,7 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
       const voiceTextMatch = raw.match(/^VOICE:([\s\S]*?)\|\|\|TEXT:([\s\S]*)$/);
       if (voiceTextMatch) {
         const textSegment = voiceTextMatch[2];
-        // textSegment itself may be JSON of text_output
+        // textSegment itself may be JSON of diagnostic_report
         try {
           const parsedText = JSON.parse(textSegment);
           if (parsedText && typeof parsedText.content === 'string') {
@@ -82,20 +94,21 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
         }
       }
 
-      // Legacy: Direct structured JSON message
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.text_output && typeof parsed.text_output.content === 'string') {
-          return JSON.stringify(parsed.text_output);
-        }
-      } catch {}
       return raw;
     };
 
-    // Derive chat display messages (show voice_output if structured JSON)
+    // Derive chat display messages (show voice_output for TTS content)
     const displayMessages = messages.map((m) => {
       if (typeof m.message === 'string') {
         // Try new structured JSON format first
+        try {
+          const parsed = JSON.parse(m.message);
+          if (parsed && parsed.voice_output && parsed.diagnostic_report) {
+            return { ...m, message: parsed.voice_output };
+          }
+        } catch {}
+
+        // Try legacy structured JSON format
         try {
           const parsed = JSON.parse(m.message);
           if (parsed && parsed.voice_output && parsed.text_output) {
@@ -108,14 +121,6 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
         if (match) {
           return { ...m, message: match[1].trim() };
         }
-
-        // Legacy: Raw JSON
-        try {
-          const parsed = JSON.parse(m.message);
-          if (parsed && parsed.voice_output && parsed.text_output) {
-            return { ...m, message: parsed.voice_output };
-          }
-        } catch {}
       }
       return m;
     });
