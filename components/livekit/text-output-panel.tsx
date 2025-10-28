@@ -24,11 +24,19 @@ export const TextOutputPanel: React.FC<TextOutputPanelProps> = ({
       const parsed = JSON.parse(raw);
 
       // Prefer diagnostic_report wrapper
-      if (parsed && parsed.diagnostic_report && typeof parsed.diagnostic_report.content === 'string') {
+      if (
+        parsed &&
+        parsed.diagnostic_report &&
+        typeof parsed.diagnostic_report.content === 'string'
+      ) {
         return {
           mainContent: parsed.diagnostic_report.content as string,
-          webSources: Array.isArray(parsed.diagnostic_report.web_sources) ? parsed.diagnostic_report.web_sources : [],
-          youtubeVideos: Array.isArray(parsed.diagnostic_report.youtube_videos) ? parsed.diagnostic_report.youtube_videos : [],
+          webSources: Array.isArray(parsed.diagnostic_report.web_sources)
+            ? parsed.diagnostic_report.web_sources
+            : [],
+          youtubeVideos: Array.isArray(parsed.diagnostic_report.youtube_videos)
+            ? parsed.diagnostic_report.youtube_videos
+            : [],
           structured: true,
         };
       }
@@ -47,8 +55,12 @@ export const TextOutputPanel: React.FC<TextOutputPanelProps> = ({
       if (parsed && parsed.text_output && typeof parsed.text_output.content === 'string') {
         return {
           mainContent: parsed.text_output.content as string,
-          webSources: Array.isArray(parsed.text_output.web_sources) ? parsed.text_output.web_sources : [],
-          youtubeVideos: Array.isArray(parsed.text_output.youtube_videos) ? parsed.text_output.youtube_videos : [],
+          webSources: Array.isArray(parsed.text_output.web_sources)
+            ? parsed.text_output.web_sources
+            : [],
+          youtubeVideos: Array.isArray(parsed.text_output.youtube_videos)
+            ? parsed.text_output.youtube_videos
+            : [],
           structured: true,
         };
       }
@@ -153,24 +165,31 @@ export const TextOutputPanel: React.FC<TextOutputPanelProps> = ({
                       Web Sources
                     </h3>
                     <div className="space-y-3">
-                      {webSources.map((source: { title: string; url: string; snippet?: string }, index: number) => (
-                        <div key={index} className="border-l-2 border-blue-300 pl-3">
-                          <a
-                            href={source.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block font-medium text-blue-600 underline transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                          >
-                            {source.title}
-                          </a>
-                          <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                            {source.url}
-                          </p>
-                          {source.snippet && (
-                            <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">{source.snippet}</p>
-                          )}
-                        </div>
-                      ))}
+                      {webSources.map(
+                        (
+                          source: { title: string; url: string; snippet?: string },
+                          index: number
+                        ) => (
+                          <div key={index} className="border-l-2 border-blue-300 pl-3">
+                            <a
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block font-medium text-blue-600 underline transition-colors hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              {source.title}
+                            </a>
+                            <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+                              {source.url}
+                            </p>
+                            {source.snippet && (
+                              <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                                {source.snippet}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
                 )}
