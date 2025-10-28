@@ -52,6 +52,7 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
     }
 
     // Get the latest text content for the diagnostic report panel
+    // Behavior: Always return the most recent diagnostic_report when available (Option A)
     const getLatestTextContent = (): string => {
       const assistantMessages = messages.filter((msg) => !msg.from?.isLocal);
       if (assistantMessages.length === 0) return '';
@@ -67,6 +68,7 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
           parsed.diagnostic_report &&
           typeof parsed.diagnostic_report.content === 'string'
         ) {
+          // Return the diagnostic_report object as a JSON string (frontend panel will parse)
           return JSON.stringify(parsed.diagnostic_report);
         }
       } catch {}
@@ -90,11 +92,13 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
             return JSON.stringify(parsedText); // normalized
           }
         } catch {
-          return textSegment; // plain fallback
+          // If it's plain text, return as-is (legacy)
+          return textSegment;
         }
       }
 
-      return raw;
+      // If nothing structured found, return empty string so diagnostics panel can keep previous content
+      return '';
     };
 
     // Derive chat display messages (show voice_output for TTS content)
@@ -103,7 +107,8 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
         // Try new structured JSON format first
         try {
           const parsed = JSON.parse(m.message);
-          if (parsed && parsed.voice_output && parsed.diagnostic_report) {
+          if (parsed && parsed.voice_output) {
+            // Prefer voice_output for chat display (short TTS-friendly text)
             return { ...m, message: parsed.voice_output };
           }
         } catch {}
@@ -111,12 +116,12 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
         // Try legacy structured JSON format
         try {
           const parsed = JSON.parse(m.message);
-          if (parsed && parsed.voice_output && parsed.text_output) {
+          if (parsed && parsed.voice_output) {
             return { ...m, message: parsed.voice_output };
           }
         } catch {}
 
-        // VOICE|||TEXT pattern
+        // VOICE|||TEXT pattern -> display voice portion in chat
         const match = m.message.match(/^VOICE:([\s\S]*?)\|\|\|TEXT:[\s\S]*$/);
         if (match) {
           return { ...m, message: match[1].trim() };

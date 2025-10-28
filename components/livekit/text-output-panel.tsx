@@ -22,8 +22,19 @@ export const TextOutputPanel: React.FC<TextOutputPanelProps> = ({
   const parseStructured = (raw: string) => {
     try {
       const parsed = JSON.parse(raw);
-      // Check for new diagnostic_report structure
-      if (parsed && parsed.content) {
+
+      // Prefer diagnostic_report wrapper
+      if (parsed && parsed.diagnostic_report && typeof parsed.diagnostic_report.content === 'string') {
+        return {
+          mainContent: parsed.diagnostic_report.content as string,
+          webSources: Array.isArray(parsed.diagnostic_report.web_sources) ? parsed.diagnostic_report.web_sources : [],
+          youtubeVideos: Array.isArray(parsed.diagnostic_report.youtube_videos) ? parsed.diagnostic_report.youtube_videos : [],
+          structured: true,
+        };
+      }
+
+      // Backwards compatibility: top-level content
+      if (parsed && parsed.content && typeof parsed.content === 'string') {
         return {
           mainContent: parsed.content as string,
           webSources: Array.isArray(parsed.web_sources) ? parsed.web_sources : [],
@@ -31,16 +42,13 @@ export const TextOutputPanel: React.FC<TextOutputPanelProps> = ({
           structured: true,
         };
       }
-      // Check for legacy text_output structure
-      if (parsed && parsed.text_output && parsed.text_output.content) {
+
+      // Legacy text_output container
+      if (parsed && parsed.text_output && typeof parsed.text_output.content === 'string') {
         return {
           mainContent: parsed.text_output.content as string,
-          webSources: Array.isArray(parsed.text_output.web_sources)
-            ? parsed.text_output.web_sources
-            : [],
-          youtubeVideos: Array.isArray(parsed.text_output.youtube_videos)
-            ? parsed.text_output.youtube_videos
-            : [],
+          webSources: Array.isArray(parsed.text_output.web_sources) ? parsed.text_output.web_sources : [],
+          youtubeVideos: Array.isArray(parsed.text_output.youtube_videos) ? parsed.text_output.youtube_videos : [],
           structured: true,
         };
       }
@@ -72,7 +80,7 @@ export const TextOutputPanel: React.FC<TextOutputPanelProps> = ({
         )
         // Format bullet points with better styling
         .replace(
-          /^• (.+)$/gm,
+          /^[-*•]\s+(.+)$/gm,
           '<div class="flex items-start mb-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded"><span class="text-blue-500 mr-3 mt-1 text-lg">•</span><span class="text-gray-800 dark:text-gray-200 leading-relaxed">$1</span></div>'
         )
         // Convert line breaks
@@ -145,7 +153,7 @@ export const TextOutputPanel: React.FC<TextOutputPanelProps> = ({
                       Web Sources
                     </h3>
                     <div className="space-y-3">
-                      {webSources.map((source: { title: string; url: string }, index: number) => (
+                      {webSources.map((source: { title: string; url: string; snippet?: string }, index: number) => (
                         <div key={index} className="border-l-2 border-blue-300 pl-3">
                           <a
                             href={source.url}
@@ -158,6 +166,9 @@ export const TextOutputPanel: React.FC<TextOutputPanelProps> = ({
                           <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
                             {source.url}
                           </p>
+                          {source.snippet && (
+                            <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">{source.snippet}</p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -224,6 +235,11 @@ export const TextOutputPanel: React.FC<TextOutputPanelProps> = ({
                       )}
                     </div>
                   </div>
+                )}
+
+                {/* If no videos and no web sources and no main content, show placeholder */}
+                {!mainContent && webSources.length === 0 && youtubeVideos.length === 0 && (
+                  <div className="text-sm text-gray-500 italic">No diagnostic data available.</div>
                 )}
               </div>
             </div>
