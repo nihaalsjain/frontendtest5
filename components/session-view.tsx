@@ -60,6 +60,8 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
       const raw = lastMessage.message;
       if (typeof raw !== 'string') return '';
 
+      console.log('🔍 getLatestTextContent: raw message:', raw);
+
       // Try to parse as new structured JSON with diagnostic_report
       try {
         const parsed = JSON.parse(raw);
@@ -69,7 +71,9 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
           typeof parsed.diagnostic_report.content === 'string'
         ) {
           // Return the diagnostic_report object as a JSON string (frontend panel will parse)
-          return JSON.stringify(parsed.diagnostic_report);
+          const result = JSON.stringify(parsed.diagnostic_report);
+          console.log('✅ Found diagnostic_report:', result);
+          return result;
         }
       } catch {}
 
@@ -77,7 +81,9 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
       try {
         const parsed = JSON.parse(raw);
         if (parsed && parsed.text_output && typeof parsed.text_output.content === 'string') {
-          return JSON.stringify(parsed.text_output);
+          const result = JSON.stringify(parsed.text_output);
+          console.log('✅ Found text_output (legacy):', result);
+          return result;
         }
       } catch {}
 
@@ -85,10 +91,24 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
       const voiceTextMatch = raw.match(/^VOICE:([\s\S]*?)\|\|\|TEXT:([\s\S]*)$/);
       if (voiceTextMatch) {
         const textSegment = voiceTextMatch[2];
-        // textSegment itself may be JSON of diagnostic_report
+        // textSegment itself may be JSON with diagnostic_report
         try {
           const parsedText = JSON.parse(textSegment);
+          // Check for diagnostic_report structure
+          if (
+            parsedText &&
+            parsedText.diagnostic_report &&
+            typeof parsedText.diagnostic_report.content === 'string'
+          ) {
+            console.log(
+              '✅ Found VOICE|||TEXT with diagnostic_report:',
+              JSON.stringify(parsedText.diagnostic_report)
+            );
+            return JSON.stringify(parsedText.diagnostic_report);
+          }
+          // Legacy: check for direct content
           if (parsedText && typeof parsedText.content === 'string') {
+            console.log('✅ Found VOICE|||TEXT with direct content:', JSON.stringify(parsedText));
             return JSON.stringify(parsedText); // normalized
           }
         } catch {

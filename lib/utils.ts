@@ -20,25 +20,10 @@ export function transcriptionToChatMessage(
   textStream: TextStreamData,
   room: Room
 ): ReceivedChatMessage {
-  // Extract voice_output for TTS to prevent diagnostic_report from being spoken
-  let processedText = textStream.text;
-
-  try {
-    // Try to parse as structured JSON
-    const parsed = JSON.parse(textStream.text);
-    if (parsed && parsed.voice_output && typeof parsed.voice_output === 'string') {
-      // Use only voice_output for TTS - this prevents the entire diagnostic_report from being spoken
-      processedText = parsed.voice_output;
-      console.log('🔊 TTS: Extracted voice_output for TTS:', processedText);
-    }
-  } catch {
-    // Not JSON, use original text
-  }
-
   return {
     id: textStream.streamInfo.id,
     timestamp: textStream.streamInfo.timestamp,
-    message: processedText, // This now contains only voice_output for TTS
+    message: textStream.text, // Keep original full structured message
     from:
       textStream.participantInfo.identity === room.localParticipant.identity
         ? room.localParticipant
