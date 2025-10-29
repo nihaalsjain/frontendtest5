@@ -39,6 +39,7 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
     const { state: agentState } = useVoiceAssistant();
     const [chatOpen, setChatOpen] = useState(false);
     const [textOutputOpen, setTextOutputOpen] = useState(false);
+    const [diagnosticData, setDiagnosticData] = useState<string>(''); // Store diagnostic data from API
     const { messages, send } = useChatAndTranscription();
     const room = useRoomContext();
 
@@ -47,113 +48,97 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
       enabled: process.env.NODE_ENV !== 'production',
     });
 
+    // Fetch diagnostic data from the new API
+    const fetchDiagnosticData = async () => {
+      try {
+        console.log('🌐 Fetching diagnostic data from API...');
+        const response = await fetch('http://localhost:8001/api/diagnostic-data');
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.data) {
+            console.log('✅ API Response received:', result.data);
+            // Convert API response to format expected by TextOutputPanel
+            const formattedData = JSON.stringify(result.data);
+            setDiagnosticData(formattedData);
+            console.log('✅ Diagnostic data updated:', formattedData.substring(0, 200) + '...');
+            return true;
+          } else {
+            console.log('📭 No diagnostic data available in API response');
+            return false;
+          }
+        } else {
+          console.log('⚠️ API response not ok:', response.status, response.statusText);
+          return false;
+        }
+      } catch (error) {
+        console.error('❌ Failed to fetch diagnostic data:', error);
+        return false;
+      }
+    };
+
+    // Monitor messages and fetch diagnostic data when new assistant messages arrive
+    useEffect(() => {
+      const assistantMessages = messages.filter((msg) => !msg.from?.isLocal);
+
+      if (assistantMessages.length > 0) {
+        console.log('📨 New message detected, checking for diagnostic data...');
+
+        // Small delay to ensure backend has processed and stored the data
+        const timeoutId = setTimeout(() => {
+          fetchDiagnosticData();
+        }, 1000); // 1 second delay
+
+        return () => clearTimeout(timeoutId);
+      }
+    }, [messages]);
+
     async function handleSendMessage(message: string) {
       await send(message);
     }
 
     // Get the latest text content for the diagnostic report panel
-    // Behavior: Always return the most recent diagnostic_report when available (Option A)
+    // NEW: Use diagnostic data from API instead of parsing messages
     const getLatestTextContent = (): string => {
-      const assistantMessages = messages.filter((msg) => !msg.from?.isLocal);
-      console.log(
-        '🔍 getLatestTextContent: Total messages:',
-        messages.length,
-        'Assistant messages:',
-        assistantMessages.length
-      );
+      console.log('🔍 getLatestTextContent: Using diagnostic data from API');
+      console.log('🔍 Current diagnostic data length:', diagnosticData.length);
 
-      if (assistantMessages.length === 0) return '';
-      const lastMessage = assistantMessages[assistantMessages.length - 1];
-      const raw = lastMessage.message;
-      if (typeof raw !== 'string') return '';
-
-      console.log('🔍 getLatestTextContent: Raw message (first 200 chars):', raw.substring(0, 200));
-      console.log('🔍 getLatestTextContent: Raw message type:', typeof raw, 'Length:', raw.length);
-
-      // Try to parse as new structured JSON with diagnostic_report
-      try {
-        const parsed = JSON.parse(raw);
-        if (
-          parsed &&
-          parsed.diagnostic_report &&
-          typeof parsed.diagnostic_report.content === 'string'
-        ) {
-          // Return the diagnostic_report object as a JSON string (frontend panel will parse)
-          const result = JSON.stringify(parsed.diagnostic_report);
-          console.log('✅ Found diagnostic_report:', result);
-          return result;
-        }
-      } catch {}
-
-      // Try legacy structured JSON with text_output
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.text_output && typeof parsed.text_output.content === 'string') {
-          const result = JSON.stringify(parsed.text_output);
-          console.log('✅ Found text_output (legacy):', result);
-          return result;
-        }
-      } catch {}
-
-      // Pattern VOICE:...|||TEXT:...
-      const voiceTextMatch = raw.match(/^VOICE:([\s\S]*?)\|\|\|TEXT:([\s\S]*)$/);
-      if (voiceTextMatch) {
-        const textSegment = voiceTextMatch[2];
-        // textSegment itself may be JSON with diagnostic_report
-        try {
-          const parsedText = JSON.parse(textSegment);
-          // Check for diagnostic_report structure
-          if (
-            parsedText &&
-            parsedText.diagnostic_report &&
-            typeof parsedText.diagnostic_report.content === 'string'
-          ) {
-            console.log(
-              '✅ Found VOICE|||TEXT with diagnostic_report:',
-              JSON.stringify(parsedText.diagnostic_report)
-            );
-            return JSON.stringify(parsedText.diagnostic_report);
-          }
-          // Legacy: check for direct content
-          if (parsedText && typeof parsedText.content === 'string') {
-            console.log('✅ Found VOICE|||TEXT with direct content:', JSON.stringify(parsedText));
-            return JSON.stringify(parsedText); // normalized
-          }
-        } catch {
-          // If it's plain text, return as-is (legacy)
-          return textSegment;
-        }
+      if (diagnosticData) {
+        console.log(
+          '✅ Returning diagnostic data from API:',
+          diagnosticData.substring(0, 200) + '...'
+        );
+        return diagnosticData;
       }
 
-      // If nothing structured found, return empty string so diagnostics panel can keep previous content
+      console.log('📭 No diagnostic data available, showing empty state');
       return '';
     };
 
-    // Derive chat display messages (show voice_output for TTS content)
+    // Derive chat display messages (now expecting simple voice-friendly text)
     const displayMessages = messages.map((m) => {
       if (typeof m.message === 'string') {
-        // Try new structured JSON format first
+        // NEW: Backend now returns only voice-friendly text, no JSON parsing needed
+        console.log('📝 Processing message for chat display:', m.message.substring(0, 100));
+
+        // Legacy support: Try to parse structured JSON if present (backwards compatibility)
         try {
           const parsed = JSON.parse(m.message);
           if (parsed && parsed.voice_output) {
-            // Prefer voice_output for chat display (short TTS-friendly text)
+            console.log('✅ Found legacy voice_output in message');
             return { ...m, message: parsed.voice_output };
           }
         } catch {}
 
-        // Try legacy structured JSON format
-        try {
-          const parsed = JSON.parse(m.message);
-          if (parsed && parsed.voice_output) {
-            return { ...m, message: parsed.voice_output };
-          }
-        } catch {}
-
-        // VOICE|||TEXT pattern -> display voice portion in chat
+        // Legacy support: VOICE|||TEXT pattern -> display voice portion in chat
         const match = m.message.match(/^VOICE:([\s\S]*?)\|\|\|TEXT:[\s\S]*$/);
         if (match) {
+          console.log('✅ Found legacy VOICE|||TEXT pattern');
           return { ...m, message: match[1].trim() };
         }
+
+        // NEW: Default behavior - message is already voice-friendly
+        console.log('✅ Using message as-is (voice-friendly format)');
       }
       return m;
     });
