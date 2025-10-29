@@ -55,12 +55,20 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
     // Behavior: Always return the most recent diagnostic_report when available (Option A)
     const getLatestTextContent = (): string => {
       const assistantMessages = messages.filter((msg) => !msg.from?.isLocal);
+      console.log(
+        '🔍 getLatestTextContent: Total messages:',
+        messages.length,
+        'Assistant messages:',
+        assistantMessages.length
+      );
+
       if (assistantMessages.length === 0) return '';
       const lastMessage = assistantMessages[assistantMessages.length - 1];
       const raw = lastMessage.message;
       if (typeof raw !== 'string') return '';
 
-      console.log('🔍 getLatestTextContent: raw message:', raw);
+      console.log('🔍 getLatestTextContent: Raw message (first 200 chars):', raw.substring(0, 200));
+      console.log('🔍 getLatestTextContent: Raw message type:', typeof raw, 'Length:', raw.length);
 
       // Try to parse as new structured JSON with diagnostic_report
       try {
