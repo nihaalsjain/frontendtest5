@@ -52,7 +52,13 @@ export const SessionView = React.forwardRef<HTMLElement, SessionViewComponentPro
     const fetchDiagnosticData = async () => {
       try {
         console.log('🌐 Fetching diagnostic data from API...');
-        const response = await fetch('http://localhost:8001/api/diagnostic-data');
+
+        // Use environment variable for API URL, fallback to localhost for development
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001';
+        const apiUrl = `${apiBaseUrl}/api/diagnostic-data`;
+
+        console.log('🌐 API URL:', apiUrl);
+        const response = await fetch(apiUrl);
 
         if (response.ok) {
           const result = await response.json();
